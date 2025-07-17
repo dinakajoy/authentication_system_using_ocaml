@@ -1,0 +1,5 @@
+(executable
+ (name server)
+ (public_name server)
+ (libraries dream yojson lwt caqti-driver-postgresql dotenv pages utils)
+ (preprocess (pps lwt_ppx ppx_deriving_yojson)))

@@ -1,0 +1,8 @@
+(library
+ (name pages)
+ (modules
+  pages
+  login_page
+  register_page
+  not_found_page)
+ (libraries tyxml snippets))
