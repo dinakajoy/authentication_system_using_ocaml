@@ -38,3 +38,39 @@ let password_input =
       a_class ["w-full"; "border"; "border-gray-300"; "p-2"; "rounded"]
     ] ();
   ]
+
+let error_div =
+  div
+    ~a:[
+      a_id "form-error";
+      a_class [
+        "hidden";
+        "mb-4";
+        "text-red-600";
+        "bg-red-100";
+        "border";
+        "border-red-300";
+        "p-3";
+        "rounded";
+        "text-sm"
+      ]
+    ]
+    [ txt "" ]
+
+let status_div =
+  div
+    ~a:[
+      a_id "form-status";
+      a_class [
+        "hidden";
+        "mb-4";
+        "text-green-600";
+        "bg-green-100";
+        "border";
+        "border-green-300";
+        "p-3";
+        "rounded";
+        "text-sm"
+      ]
+    ]
+    [ txt "" ]

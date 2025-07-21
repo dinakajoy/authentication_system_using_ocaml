@@ -3,7 +3,7 @@ services:
     image: postgres:15
     environment:
       POSTGRES_USER: authuser
-      POSTGRES_PASSWORD: authert
+      POSTGRES_PASSWORD: _
       POSTGRES_DB: authsystem
     volumes:
       - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
@@ -15,4 +15,4 @@ services:
     depends_on:
       - db
     environment:
-      DATABASE_URL: postgresql://authuser:authert@db:5432/authsystem
+      DATABASE_URL: postgresql://authuser:_@localhost:5432/authsystem

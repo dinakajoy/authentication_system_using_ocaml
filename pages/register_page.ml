@@ -8,7 +8,10 @@ let registration_page () =
         meta ~a:[a_charset "UTF-8"] ();
         meta ~a:[ a_name "viewport"; a_content "width=device-width, initial-scale=1.0" ] ();
         (* Link Tailwind via CDN *)
-        script ~a:[ a_src "https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4" ] (txt "")
+        script ~a:[ a_src "https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4" ] (txt "");
+        
+        (* Link JavaScript file *)
+        script ~a:[ a_src "/static/main.js"; a_defer () ] (txt "")
       ]
     )
     (body
@@ -34,18 +37,28 @@ let registration_page () =
           (* Password Field *)
           Snippets.password_input;
 
+          (* Error Field *)
+          Snippets.error_div;
+
+          (* Status Field *)
+          Snippets.status_div;
+
           (* Submit Button *)
           div ~a:[ a_class [ "mt-6" ] ]
             [
               button
                 ~a:[
                   a_button_type `Submit;
-                  a_id "submit";
+                  a_id "registration-button";
                   a_class [
-                    "bg-blue-600"; "hover:bg-blue-700";
-                    "text-white"; "font-semibold";
-                    "py-2"; "px-4"; "rounded";
-                    "w-full"; "transition-colors"; "duration-200"
+                    "bg-blue-500";
+                    "hover:bg-blue-600";
+                    "text-white";
+                    "font-semibold";
+                    "py-3"; "px-4"; "rounded";
+                    "w-full";
+                    "transition-colors"; "duration-200";
+                    "disabled:opacity-50"; "disabled:cursor-not-allowed"
                   ]
                 ]
                 [ txt "Register" ]

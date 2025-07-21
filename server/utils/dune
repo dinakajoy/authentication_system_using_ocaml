@@ -1,5 +1,5 @@
 (library
  (name utils)
- (libraries dream yojson lwt caqti-driver-postgresql scrypt)
+ (libraries dream yojson lwt caqti caqti-lwt caqti-driver-postgresql scrypt dotenv)
  (preprocess
   (pps lwt_ppx ppx_deriving_yojson)))

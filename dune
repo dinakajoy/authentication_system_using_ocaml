@@ -1,0 +1,6 @@
+(subdir static/
+  (rule 
+    (deps ../client/main.bc.js)
+    (targets main.js)
+    (mode promote)
+    (action (copy %{deps} %{targets}))))

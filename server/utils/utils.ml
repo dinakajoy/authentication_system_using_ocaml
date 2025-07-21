@@ -1,17 +1,23 @@
 open Scrypt
-(* module type DB = Caqti_lwt.CONNECTION
-module R = Caqti_request *)
+
 module type DB = Caqti_lwt.CONNECTION
+module R = Caqti_request
 module T = Caqti_type
 
-(* let add_user =
+let () = Dotenv.export () 
+
+let get_hash_secret =
+  match Sys.getenv_opt "SECRET" with
+  | Some url -> url
+  | None -> failwith "SECRET not set"
+
+let add_user (module Db : Caqti_lwt.CONNECTION) name email password =
   let query =
     let open Caqti_request.Infix in
-    (T.string ->. T.unit)
-    "INSERT INTO user (text) VALUES ($1)" in
-  fun text (module Db : DB) ->
-    let%lwt unit_or_error = Db.exec query text in
-    Caqti_lwt.or_fail unit_or_error *)
+    (T.(t3 T.string T.string T.string) ->. T.unit) 
+    "INSERT INTO users (name, email, password) VALUES (?, ?, ?)"
+  in
+  Db.exec query (name, email, password)
 
 let get_user (module Db : DB) email =
   let open Caqti_request.Infix in
@@ -22,7 +28,7 @@ let get_user (module Db : DB) email =
 
 
 let hash_password password:string =
-  encrypt_exn "my secret data" password
+  encrypt_exn password get_hash_secret
 
-let verify_password password hash_password =
-  decrypt_exn hash_password password
+let verify_password hash_password =
+  decrypt_exn hash_password get_hash_secret 
