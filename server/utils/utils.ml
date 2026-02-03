@@ -1,5 +1,3 @@
-open Scrypt
-
 module type DB = Caqti_lwt.CONNECTION
 module R = Caqti_request
 module T = Caqti_type
@@ -26,9 +24,8 @@ let get_user (module Db : DB) email =
   let%lwt result = Db.find_opt query email in
   Lwt.return result
 
+let hash_password password =
+  Argon2.hash_encoded ~t_cost:3 ~m_cost:65536 ~parallelism:1 password
 
-let hash_password password:string =
-  encrypt_exn password get_hash_secret
-
-let verify_password hash_password =
-  decrypt_exn hash_password get_hash_secret 
+let verify_password hash password =
+  Argon2.verify_encoded hash password

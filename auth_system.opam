@@ -10,8 +10,8 @@ license: "MIT"
 homepage: "https://github.com/youruser/auth_system"
 bug-reports: "https://github.com/youruser/auth_system/issues"
 depends: [
-  "ocaml" {>= "4.14.0"}
-  "dune" {>= "3.11"}
+  "ocaml" {>= "5.4.0"}
+  "dune" {>= "3.20.2"}
   "dream"
   "dotenv"
   "yojson"
@@ -22,7 +22,7 @@ depends: [
   "tyxml"
   "ppx_deriving_yojson"
   "lwt_ppx"
-  "scrypt"
+  # "argon2"
   "odoc" {with-doc}
 ]
 build: [
