@@ -40,8 +40,11 @@ let login_handler login_data request =
           let valid =
             match Utils.verify_password hashed_password password with
             | Ok verified -> verified
-            | Error err ->
-                failwith ("Error while verifying password: " ^ Argon2.ErrorCodes.message err) in
+            | Error _ -> false in
+              (* Dream.json ~status:`Unauthorized *)
+                (* (Printf.sprintf {|{ "error": "The password does not match: %s" }|} (Argon2.ErrorCodes.message err)) in *)
+              (* Dream.json ~status:`Unauthorized {|{ "error": "The password does not match" }|} in *)
+                (* failwith ("Error while verifying password: " ^ Argon2.ErrorCodes.message err) in *)
           if valid then
             Dream.json
               (Printf.sprintf {|{ "status": "ok", "message": "Welcome %s" }|} email)
