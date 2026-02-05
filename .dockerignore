@@ -1,7 +1,0 @@
-# git
-.git/
-.gitignore
-
-# Development
-Dockerfile
-docker-compose.yml

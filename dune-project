@@ -11,7 +11,7 @@
 (package
  (name auth_system)
  (synopsis "A Dream-based OCaml web app with authentication")
- (description "A simple OCaml web application using Dream, TyXML, Caqti, and secure password hashing via scrypt.")
+ (description "A simple OCaml web application using Dream, TyXML, Caqti, and secure password hashing via argon2.")
  (depends
   (ocaml (>= 5.4.0))
   dune
@@ -25,5 +25,11 @@
   tyxml
   ppx_deriving_yojson
   lwt_ppx
-  ; argon2
+  argon2
+  js_of_ocaml
+  js_of_ocaml-lwt 
+  js_of_ocaml-ppx 
+  yojson 
+  brr
+  js_of_ocaml-ppx
  ))

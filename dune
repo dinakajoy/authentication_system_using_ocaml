@@ -1,4 +1,4 @@
-(subdir static/
+(subdir client/
   (rule 
     (deps ../client/main.bc.js)
     (targets main.js)

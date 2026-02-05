@@ -3,15 +3,16 @@ opam-version: "2.0"
 version: "0.1.0"
 synopsis: "A Dream-based OCaml web app with authentication"
 description:
-  "A simple OCaml web application using Dream, TyXML, Caqti, and secure password hashing via scrypt."
-maintainer: ["you@example.com"]
-authors: ["Your Name"]
+  "A simple OCaml web application using Dream, TyXML, Caqti, and secure password hashing via argon2."
+maintainer: ["dinakajoy@gmail.com"]
+authors: ["Odinaka Joy"]
 license: "MIT"
-homepage: "https://github.com/youruser/auth_system"
-bug-reports: "https://github.com/youruser/auth_system/issues"
+homepage: "https://github.com/dinakajoy/authentication_system_using_ocaml"
+bug-reports:
+  "https://github.com/dinakajoy/authentication_system_using_ocaml/issues"
 depends: [
   "ocaml" {>= "5.4.0"}
-  "dune" {>= "3.20.2"}
+  "dune" {>= "3.11"}
   "dream"
   "dotenv"
   "yojson"
@@ -22,7 +23,13 @@ depends: [
   "tyxml"
   "ppx_deriving_yojson"
   "lwt_ppx"
-  # "argon2"
+  "argon2"
+  "js_of_ocaml"
+  "js_of_ocaml-lwt"
+  "js_of_ocaml-ppx"
+  "yojson"
+  "brr"
+  "js_of_ocaml-ppx"
   "odoc" {with-doc}
 ]
 build: [
@@ -39,4 +46,5 @@ build: [
     "@doc" {with-doc}
   ]
 ]
-dev-repo: "git+https://github.com/youruser/auth_system.git"
+dev-repo:
+  "git+https://github.com/dinakajoy/authentication_system_using_ocaml.git"

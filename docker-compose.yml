@@ -1,18 +1,12 @@
 services:
-  db:
-    image: postgres:15
+  postgres:
+    image: postgres:16
+    container_name: postgres
     environment:
-      POSTGRES_USER: authuser
-      POSTGRES_PASSWORD: _
-      POSTGRES_DB: authsystem
-    volumes:
-      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
-
-  web:
-    build: .
+      POSTGRES_USER: user101
+      POSTGRES_PASSWORD: dev_password
+      POSTGRES_DB: auth_db
     ports:
-      - "8080:8080"
-    depends_on:
-      - db
-    environment:
-      DATABASE_URL: postgresql://authuser:_@localhost:5432/authsystem
+      - "5433:5432"
+    volumes:
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql

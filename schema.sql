@@ -4,5 +4,3 @@ CREATE TABLE users (
   email TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL
 );
-
-ALTER ROLE authuser PASSWORD '_';

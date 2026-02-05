@@ -114,7 +114,7 @@ let on_register_handler () =
   if name = "" || email = "" || password = ""
     then display_error true "Please fill all fields"
   else 
-    display_error true "";
+    display_error false "";
     let json =
       `Assoc [
         "name", `String name;
@@ -132,7 +132,7 @@ let on_login_handler () =
   if email = "" || password = ""
     then display_error true "Please fill all fields"
   else 
-    display_error true "";
+    display_error false "";
     let json =
       `Assoc [
         "email", `String email;

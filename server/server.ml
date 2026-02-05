@@ -4,7 +4,7 @@ module type DB = Caqti_lwt.CONNECTION
 module R = Caqti_request
 module T = Caqti_type
 
-let () = Dotenv.export () 
+let () = Dotenv.export ()
 
 type login_request = {
   email : string;
@@ -37,7 +37,11 @@ let login_handler login_data request =
         | Ok None ->
           Dream.json ~status:`Unauthorized {|{ "error": "User not found" }|}
         | Ok (Some (_email, hashed_password)) ->
-          let valid = password = Utils.verify_password hashed_password in
+          let valid =
+            match Utils.verify_password hashed_password password with
+            | Ok verified -> verified
+            | Error err ->
+                failwith ("Error while verifying password: " ^ Argon2.ErrorCodes.message err) in
           if valid then
             Dream.json
               (Printf.sprintf {|{ "status": "ok", "message": "Welcome %s" }|} email)
@@ -65,7 +69,11 @@ let registeration_handler user_details request =
           Dream.json ~status:`Internal_Server_Error
             (Printf.sprintf {|{ "error": "DB error: %s" }|} (Caqti_error.show e))
         | Ok None ->
-          let hashed_password = Utils.hash_password password in
+          let hashed_password =
+            match Utils.hash_password password with
+            | Ok (_hash, encoded) -> encoded
+            | Error err ->
+                failwith ("Hashing failed: " ^ Argon2.ErrorCodes.message err) in
           let* new_user = Utils.add_user db name email hashed_password in
           
           (match new_user with
@@ -87,23 +95,26 @@ let get_db_url () =
 
 let check_db_connection () =
   let open Lwt.Syntax in
-  let db_url = Sys.getenv "DATABASE_URL" in
-  let uri = Uri.of_string db_url in
-  match%lwt Caqti_lwt_unix.connect uri with
+  let db_uri = Uri.of_string (get_db_url ()) in
+  match%lwt Caqti_lwt_unix.connect db_uri with
   | Ok (module Db : Caqti_lwt.CONNECTION) ->
-    let query = Caqti_request.Infix.(Caqti_type.unit ->! Caqti_type.string) "SELECT 'Connected to DB'::text" in
-    let* result = Db.find query () in
-    (match result with
-      | Ok msg ->
-        Dream.log "✅ DB Connection OK: %s" msg;
-        Lwt.return_unit
-      | Error err ->
-        Dream.log "❌ Query failed: %s" (Caqti_error.show err);
-        Lwt.fail_with "DB query failed")
+      let query =
+        Caqti_request.Infix.(
+          Caqti_type.unit ->! Caqti_type.string
+        )
+        "SELECT 'Connected to DB'::text"
+      in
+      let* result = Db.find query () in
+      (match result with
+       | Ok msg ->
+           Dream.log "✅ DB Connection OK: %s" msg;
+           Lwt.return_unit
+       | Error err ->
+           Dream.log "❌ Query failed: %s" (Caqti_error.show err);
+           Lwt.fail_with "DB query failed")
   | Error err ->
-    Dream.log "❌ Failed to connect to DB: %s" (Caqti_error.show err);
-    Lwt.fail_with "DB connection failed"
-
+      Dream.log "❌ Failed to connect to DB: %s" (Caqti_error.show err);
+      Lwt.fail_with "DB connection failed"
 
 let start_server () =
   let db_url = get_db_url () in
@@ -123,7 +134,7 @@ let start_server () =
       let%lwt body = Dream.body request in
       registeration_handler body request
     );
-    Dream.get "/static/**" (Dream.static "./static")
+    Dream.get "/static/**" (Dream.static "client")
   ]
 
 let () = Lwt_main.run (start_server ())
