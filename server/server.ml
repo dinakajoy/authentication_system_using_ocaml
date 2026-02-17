@@ -17,6 +17,20 @@ type registration_request = {
   password : string;
 } [@@deriving yojson]
 
+let send_mail username email subject content = 
+  let open Lwt.Infix in
+  Utils.send_email
+    ~to_email: email
+    ~to_name: username
+    ~subject: subject
+    ~html_content:content
+  >>= function
+  | Ok () ->
+      Dream.json {|{"status":"Email sent"}|}
+  | Error (_status, err) ->
+      Dream.log "Email error: %s" err;
+      Dream.respond ~status:`Internal_Server_Error "Email failed"
+
 let login_handler login_data request =
   match Yojson.Safe.from_string login_data with
   | exception _ ->
@@ -37,20 +51,11 @@ let login_handler login_data request =
         | Ok None ->
           Dream.json ~status:`Unauthorized {|{ "error": "User not found" }|}
         | Ok (Some (_email, hashed_password)) ->
-          let valid =
-            match Utils.verify_password hashed_password password with
-            | Ok verified -> verified
-            | Error _ -> false in
-              (* Dream.json ~status:`Unauthorized *)
-                (* (Printf.sprintf {|{ "error": "The password does not match: %s" }|} (Argon2.ErrorCodes.message err)) in *)
-              (* Dream.json ~status:`Unauthorized {|{ "error": "The password does not match" }|} in *)
-                (* failwith ("Error while verifying password: " ^ Argon2.ErrorCodes.message err) in *)
-          if valid then
-            Dream.json
+            (match Utils.verify_password hashed_password password with
+            | Ok _ ->  Dream.json
               (Printf.sprintf {|{ "status": "ok", "message": "Welcome %s" }|} email)
-          else
-            Dream.json ~status:`Unauthorized
-              {|{ "error": "Invalid email or password" }|}
+            | Error _ -> Dream.json ~status:`Unauthorized
+              {|{ "error": "Invalid email or password" }|} )
       )
     )
 
@@ -78,9 +83,18 @@ let registeration_handler user_details request =
             | Error err ->
                 failwith ("Hashing failed: " ^ Argon2.ErrorCodes.message err) in
           let* new_user = Utils.add_user db name email hashed_password in
-          
           (match new_user with
           | Ok () ->
+            let html =
+              {|
+                <h1>Verify your account</h1>
+                <p>Click the link below:</p>
+                <a href="https://localhost:8080/verify?token=...">
+                  Verify Email
+                </a>
+              |}
+            in
+            let* _send_verification = send_mail name email "Verification Email" html in
               Dream.json
                 {|{ "status": "ok", "message": "User has been registered" }|}
           | Error e ->

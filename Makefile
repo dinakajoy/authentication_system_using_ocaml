@@ -3,6 +3,8 @@ install:
 	eval $(opam env)
 	opam update
 	opam install . --deps-only -y
+	opam install cohttp cohttp-lwt-unix -y
+	opam install dotenv -y
 
 build:
 	dune build

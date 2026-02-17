@@ -2,11 +2,6 @@
 
 A simple web application built with OCaml/Dream and PostgreSQL.
 
-<video controls autoplay loop muted playsinline width="600">
-  <source src="recording.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
-
 ![Demo](./recording.gif)
 
 ---
