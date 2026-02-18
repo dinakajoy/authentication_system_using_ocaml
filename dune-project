@@ -16,7 +16,7 @@
   (ocaml (>= 5.4.0))
   dune
   dream
-  dotenv
+  cohttp-lwt-unix
   yojson
   lwt
   caqti
@@ -32,4 +32,8 @@
   yojson 
   brr
   js_of_ocaml-ppx
+  mirage-crypto 
+  mirage-crypto-rng 
+  cstruct
+  ptime
  ))

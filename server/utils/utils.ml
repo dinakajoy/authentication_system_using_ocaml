@@ -5,27 +5,61 @@ module type DB = Caqti_lwt.CONNECTION
 module R = Caqti_request
 module T = Caqti_type
 
-let () = Dotenv.export () 
-
-let get_hash_secret =
-  match Sys.getenv_opt "SECRET" with
-  | Some url -> url
-  | None -> failwith "SECRET not set"
+let get_env name =
+  match Sys.getenv_opt name with
+  | Some v -> v
+  | None ->
+      failwith ("Missing required environment variable: " ^ name)
 
 let add_user (module Db : DB) name email password =
   let query =
     let open Caqti_request.Infix in
-    (T.(t3 T.string T.string T.string) ->. T.unit) 
-    "INSERT INTO users (name, email, password) VALUES (?, ?, ?)"
+    (T.(t3 string string string) ->! T.int)
+    "INSERT INTO users (name, email, password)
+     VALUES (?, ?, ?)
+     RETURNING id"
   in
-  Db.exec query (name, email, password)
+  Db.find query (name, email, password)
 
 let get_user (module Db : DB) email =
   let open Caqti_request.Infix in
-  let query = (T.string ->? T.(t2 T.string T.string))
-    "SELECT email, password FROM users WHERE email = ?" in
+  let query = (T.string ->? T.(t4 T.string T.string T.string T.bool))
+    "SELECT id, email, password, is_verified FROM users WHERE email = ?" in
   let%lwt result = Db.find_opt query email in
   Lwt.return result
+
+let update_user (module Db : DB) user_id=
+  let query =
+    let open Caqti_request.Infix in
+    (T.int ->. T.unit)
+      "UPDATE users SET is_verified = TRUE WHERE id = ?"
+  in
+  Db.exec query user_id
+
+let add_verification_token (module Db : DB) user_id token_hash expiry =
+  let expiry_str = Ptime.to_rfc3339 expiry in
+  let query =
+    let open Caqti_request.Infix in
+    (T.(t3 int string string) ->. T.unit)
+      "INSERT INTO email_verification_tokens
+       (user_id, token_hash, expires_at)
+       VALUES (?, ?, ?)"
+  in
+  Db.exec query (user_id, token_hash, expiry_str)
+
+let get_verification_token (module Db : DB) token_hash =
+  let open Caqti_request.Infix in
+  let query = (T.string ->? T.(t3 T.int T.string T.string))
+    "SELECT user_id, expires_at FROM email_verification_tokens WHERE token_hash = ?" in
+  Db.find_opt query token_hash
+
+let delete_verification_token (module Db : DB) token_hash =
+  let query =
+    let open Caqti_request.Infix in
+    (T.string ->. T.unit)
+      "DELETE FROM email_verification_tokens WHERE token_hash = ?"
+  in
+  Db.exec query token_hash
 
 let hash_password password =
   let encoded_len = Argon2.encoded_len ~t_cost:2 ~m_cost:65536 ~parallelism:1 ~salt_len:(String.length "0000000000000000") ~hash_len:32 ~kind:D in
@@ -35,35 +69,46 @@ let hash_password password =
 let verify_password hash password =
   Argon2.verify ~encoded:hash ~kind:D ~pwd:password
 
-let get_email_key =
-  match Sys.getenv_opt "BREVO_KEY" with
-  | Some url -> url
-  | None -> failwith "BREVO_KEY not set"
+let generate_token () =
+  Mirage_crypto_rng.generate 32
+  |> Cstruct.to_string
+  |> Base64.encode_string
+
+let hash_token token =
+  Digestif.SHA256.(to_hex (digest_string token))
+
+let token_expiry_time () =
+  let now = Ptime_clock.now () in
+  let one_hour = Ptime.Span.of_int_s 3600 in
+  match Ptime.add_span now one_hour with
+  | Some t -> t
+  | None -> failwith "Failed to calculate expiry time"
+
+let is_token_valid expires_at =
+  let now = Ptime_clock.now () in
+  Ptime.compare now expires_at <= 0
 
 let send_email ~to_email ~to_name ~subject ~html_content =
-  (* let uri = Uri.of_string "https://api.brevo.com/v3/smtp/email" in *)
-  let uri = Uri.of_string "https://api.brevo.com/v3/emailCampaigns" in
-  let api_key = get_email_key in
+  let uri = Uri.of_string "https://api.brevo.com/v3/smtp/email" in
+  let api_key = get_env "BREVO_KEY" in
 
   let body =
-    `Assoc [
-      "name", `String "OCaml Auth App";
-      "subject", `String subject;
-      "sender", `Assoc [
-          ("name", `String "OCaml Auth App");
-          ("email", `String "noreply@authsys.com")
+  `Assoc [
+    "sender", `Assoc [
+        ("name", `String "OCaml Auth App");
+        ("email", `String "noreply@authapp.com")
+    ];
+    "to",
+      `List [
+        `Assoc [
+          ("email", `String to_email);
+          ("name", `String to_name)
+        ]
       ];
-      "type", `String "classic";
-      "htmlContent", `String html_content;
-      "recipients",
-        `List [
-          `Assoc [
-            ("email", `String to_email);
-            ("name", `String to_name)
-          ]
-        ];
-    ]
-    |> Yojson.Safe.to_string
+    "subject", `String subject;
+    "htmlContent", `String html_content;
+  ]
+  |> Yojson.Safe.to_string
   in
   let headers =
     Cohttp.Header.init ()
@@ -76,7 +121,6 @@ let send_email ~to_email ~to_name ~subject ~html_content =
     ~body:(Cohttp_lwt.Body.of_string body)
     uri
   >>= fun (resp, body_stream) ->
-
   let status = Cohttp.Response.status resp in
   Cohttp_lwt.Body.to_string body_stream >>= fun response_body ->
 

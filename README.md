@@ -36,9 +36,8 @@ Create a `.env` file in the project root with the following variables:
 ```bash
 DATABASE_URL=postgresql://user101:dev_password@localhost:5433/auth_db
 SECRET=your_secret_here
+BREVO_KEY=your_brevo_api_key_here
 ```
-
-> Replace `your_secret_here` with a secure secret key used by the application.
 
 ### 3. Install dependencies
 ```bash

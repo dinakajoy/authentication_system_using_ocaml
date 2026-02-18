@@ -14,7 +14,7 @@ depends: [
   "ocaml" {>= "5.4.0"}
   "dune" {>= "3.11"}
   "dream"
-  "dotenv"
+  "cohttp-lwt-unix"
   "yojson"
   "lwt"
   "caqti"
@@ -30,6 +30,10 @@ depends: [
   "yojson"
   "brr"
   "js_of_ocaml-ppx"
+  "mirage-crypto"
+  "mirage-crypto-rng"
+  "cstruct"
+  "ptime"
   "odoc" {with-doc}
 ]
 build: [

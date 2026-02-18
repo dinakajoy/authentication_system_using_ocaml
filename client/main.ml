@@ -19,7 +19,6 @@ let is_loading el_id state =
         El.set_prop (El.Prop.jstr (Jstr.v "innerHTML")) (Jstr.v "Submit") el)
     | None -> ()
 
-
 let display_error state error = 
   let error_element =  (Document.find_el_by_id G.document) (Jstr.v "form-error") in
   match error_element with
@@ -77,6 +76,8 @@ let get_response_data response el =
     Fut.return ()
 
 let make_request url data el = 
+  display_status false "";
+  display_error false "";
   let init =
     Fetch.Request.init
       ~method':(Jstr.of_string "POST")

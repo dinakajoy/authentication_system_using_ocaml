@@ -3,11 +3,10 @@ install:
 	eval $(opam env)
 	opam update
 	opam install . --deps-only -y
-	opam install cohttp cohttp-lwt-unix -y
-	opam install dotenv -y
+# 	opam install cohttp-lwt-unix -y
 
 build:
 	dune build
 
 serve:
-	dune exec server/server.exe
+	set -a && . .env && set +a && dune exec server/server.exe
