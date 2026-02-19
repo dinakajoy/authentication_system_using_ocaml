@@ -32,8 +32,6 @@
   yojson 
   brr
   js_of_ocaml-ppx
-  mirage-crypto 
-  mirage-crypto-rng 
-  cstruct
   ptime
+  mirage-crypto-rng
  ))

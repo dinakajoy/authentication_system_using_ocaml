@@ -1,5 +1,6 @@
 (library
  (name utils)
- (libraries yojson lwt caqti caqti-lwt caqti-driver-postgresql argon2 cohttp-lwt-unix cstruct mirage-crypto mirage-crypto-rng ptime)
+ (libraries yojson lwt caqti caqti-lwt caqti-driver-postgresql argon2 cohttp-lwt-unix 
+ mirage-crypto-rng mirage-crypto-rng.unix cstruct ptime ptime.clock)
  (preprocess
   (pps lwt_ppx ppx_deriving_yojson)))

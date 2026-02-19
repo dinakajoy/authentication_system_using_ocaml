@@ -11,68 +11,9 @@ let get_env name =
   | None ->
       failwith ("Missing required environment variable: " ^ name)
 
-let add_user (module Db : DB) name email password =
-  let query =
-    let open Caqti_request.Infix in
-    (T.(t3 string string string) ->! T.int)
-    "INSERT INTO users (name, email, password)
-     VALUES (?, ?, ?)
-     RETURNING id"
-  in
-  Db.find query (name, email, password)
-
-let get_user (module Db : DB) email =
-  let open Caqti_request.Infix in
-  let query = (T.string ->? T.(t4 T.string T.string T.string T.bool))
-    "SELECT id, email, password, is_verified FROM users WHERE email = ?" in
-  let%lwt result = Db.find_opt query email in
-  Lwt.return result
-
-let update_user (module Db : DB) user_id=
-  let query =
-    let open Caqti_request.Infix in
-    (T.int ->. T.unit)
-      "UPDATE users SET is_verified = TRUE WHERE id = ?"
-  in
-  Db.exec query user_id
-
-let add_verification_token (module Db : DB) user_id token_hash expiry =
-  let expiry_str = Ptime.to_rfc3339 expiry in
-  let query =
-    let open Caqti_request.Infix in
-    (T.(t3 int string string) ->. T.unit)
-      "INSERT INTO email_verification_tokens
-       (user_id, token_hash, expires_at)
-       VALUES (?, ?, ?)"
-  in
-  Db.exec query (user_id, token_hash, expiry_str)
-
-let get_verification_token (module Db : DB) token_hash =
-  let open Caqti_request.Infix in
-  let query = (T.string ->? T.(t3 T.int T.string T.string))
-    "SELECT user_id, expires_at FROM email_verification_tokens WHERE token_hash = ?" in
-  Db.find_opt query token_hash
-
-let delete_verification_token (module Db : DB) token_hash =
-  let query =
-    let open Caqti_request.Infix in
-    (T.string ->. T.unit)
-      "DELETE FROM email_verification_tokens WHERE token_hash = ?"
-  in
-  Db.exec query token_hash
-
-let hash_password password =
-  let encoded_len = Argon2.encoded_len ~t_cost:2 ~m_cost:65536 ~parallelism:1 ~salt_len:(String.length "0000000000000000") ~hash_len:32 ~kind:D in
-  Argon2.hash ~t_cost:2 ~m_cost:65536 ~parallelism:1 ~pwd:password ~salt:"0000000000000000" ~kind:D ~hash_len:32 ~encoded_len
-      ~version:VERSION_NUMBER
-
-let verify_password hash password =
-  Argon2.verify ~encoded:hash ~kind:D ~pwd:password
-
 let generate_token () =
   Mirage_crypto_rng.generate 32
-  |> Cstruct.to_string
-  |> Base64.encode_string
+  |> Base64.encode_string ~pad:false ~alphabet:Base64.uri_safe_alphabet
 
 let hash_token token =
   Digestif.SHA256.(to_hex (digest_string token))
@@ -88,6 +29,82 @@ let is_token_valid expires_at =
   let now = Ptime_clock.now () in
   Ptime.compare now expires_at <= 0
 
+let add_user (module Db : DB) name email password =
+  let query =
+    let open Caqti_request.Infix in
+    (T.(t3 string string string) ->! T.int)
+    "INSERT INTO users (name, email, password) VALUES (?, ?, ?) RETURNING id"
+  in
+  Db.find query (name, email, password)
+
+let get_user (module Db : DB) email =
+  let open Caqti_request.Infix in
+  let query = (T.string ->? T.(t3 T.string T.string T.bool))
+    "SELECT email, password, is_verified FROM users WHERE email = ?" in
+  Db.find_opt query email
+
+let get_user_by_id (module Db : DB) user_id =
+  let open Caqti_request.Infix in
+  let query = (T.int ->? T.(t2 T.string T.string))
+    "SELECT name, email FROM users WHERE id = ?" in
+  Db.find_opt query user_id
+
+let update_user_as_verified (module Db : DB) user_id =
+  let query =
+    let open Caqti_request.Infix in
+    (T.int ->. T.unit)
+      "UPDATE users SET is_verified = TRUE WHERE id = ?"
+  in
+  Db.exec query user_id
+
+let add_verification_token (module Db : DB) user_id token_hash expiry =
+  let query =
+    let open Caqti_request.Infix in
+    (T.(t3 int string ptime) ->. T.unit)
+      "INSERT INTO email_verification_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)"
+  in
+  Db.exec query (user_id, token_hash, expiry)
+
+let get_verification_token (module Db : DB) token_hash =
+  let open Caqti_request.Infix in
+  let query = (T.string ->? T.(t3 int string ptime))
+    "SELECT user_id, token_hash, expires_at FROM email_verification_tokens WHERE token_hash = ?" in
+  Db.find_opt query token_hash
+
+let delete_verification_token (module Db : DB) token_hash =
+  let query =
+    let open Caqti_request.Infix in
+    (T.string ->. T.unit)
+      "DELETE FROM email_verification_tokens WHERE token_hash = ?"
+  in
+  Db.exec query token_hash
+
+let add_user_and_verification_token (module Db : DB) name email hashed_password =
+  let open Lwt_result.Syntax in
+  Db.with_transaction (fun _ ->
+    let* user_id =
+      add_user (module Db : DB) name email hashed_password
+    in
+
+    let raw_token = generate_token () in
+    let token_hash = hash_token raw_token in
+    let expiry = token_expiry_time () in
+
+    let* () =
+      add_verification_token (module Db : DB) user_id token_hash expiry
+    in
+
+    Lwt_result.return raw_token
+  )
+
+let hash_password password =
+  let encoded_len = Argon2.encoded_len ~t_cost:2 ~m_cost:65536 ~parallelism:1 ~salt_len:(String.length "0000000000000000") ~hash_len:32 ~kind:D in
+  Argon2.hash ~t_cost:2 ~m_cost:65536 ~parallelism:1 ~pwd:password ~salt:"0000000000000000" ~kind:D ~hash_len:32 ~encoded_len
+      ~version:VERSION_NUMBER
+
+let verify_password hash password =
+  Argon2.verify ~encoded:hash ~kind:D ~pwd:password
+
 let send_email ~to_email ~to_name ~subject ~html_content =
   let uri = Uri.of_string "https://api.brevo.com/v3/smtp/email" in
   let api_key = get_env "BREVO_KEY" in
@@ -96,7 +113,7 @@ let send_email ~to_email ~to_name ~subject ~html_content =
   `Assoc [
     "sender", `Assoc [
         ("name", `String "OCaml Auth App");
-        ("email", `String "noreply@authapp.com")
+        ("email", `String "dinakajoy@gmail.com")
     ];
     "to",
       `List [

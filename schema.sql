@@ -6,10 +6,10 @@ CREATE TABLE users (
   password TEXT NOT NULL
 );
 
-email_verification_tokens (
+CREATE TABLE email_verification_tokens (
   id SERIAL PRIMARY KEY,
   user_id INT NOT NULL REFERENCES users(id),
   token_hash TEXT NOT NULL,
-  expires_at TIMESTAMP NOT NULL,
-  created_at TIMESTAMP DEFAULT now()
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
 );
