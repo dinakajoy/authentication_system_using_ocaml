@@ -15,6 +15,16 @@ type registration_request = {
   password : string;
 } [@@deriving yojson]
 
+type forgot_password_request = {
+  email : string;
+} [@@deriving yojson]
+
+type reset_password_request = {
+  token : string;
+  password : string;
+  confirm_password : string;
+} [@@deriving yojson]
+
 let send_mail name email subject content = 
   let open Lwt.Infix in
   Utils.send_email
@@ -36,12 +46,27 @@ let send_account_verification_email name email token =
     <a href="http://localhost:8080/verify_email?token=%s">
       Verify Email
     </a>
-    <p>You can also copy and paste the following token in the verification page:</p>
+    <p>You can also copy and paste the following link in your browwser:</p>
     http://localhost:8080/verify_email?token=%s
     <br />
     <p>If you didn’t create this account, ignore this email.</p>
   |} name token token in
   send_mail name email "Verification Email" html
+
+let send_password_reset_email name email token =
+  let html = Printf.sprintf {|
+    <h1>Hi %s!</h1>
+    <p>Please click the link below to change your password.</p>
+    <p>This link expires in 1 hour.</p>
+    <a href="http://localhost:8080/reset-password?token=%s">
+      Change Password
+    </a>
+    <p>You can also copy and paste the following link in your browwser:</p>
+    http://localhost:8080/reset-password?token=%s
+    <br />
+    <p>If you didn’t request to change your password, ignore this email.</p>
+  |} name token token in
+  send_mail name email "Password Reset Email" html
 
 let login_handler login_data request =
   match Yojson.Safe.from_string login_data with
@@ -62,7 +87,7 @@ let login_handler login_data request =
             (Printf.sprintf {|{ "error": "DB error: %s" }|} (Caqti_error.show e))
         | Ok None ->
           Dream.json ~status:`Unauthorized {|{ "error": "User not found" }|}
-        | Ok (Some (_email, hashed_password, is_verified)) ->
+        | Ok (Some (_id, _email, hashed_password, is_verified)) ->
             if not is_verified then
               Dream.json ~status:`Unauthorized
                 {|{ "error": "Account not verified. Please check your email for verification instructions." }|}
@@ -140,7 +165,7 @@ let verify_account_handler token request =
           let new_expiry = Utils.token_expiry_time () in
           (* Insert verification token linked to the user *)
           let* new_user_verification_token =
-            Utils.add_verification_token db user_id new_token_hash new_expiry
+            Utils.add_verification_token db user_id new_token_hash new_expiry "verification"
           in
           match new_user_verification_token with
           | Ok () -> 
@@ -179,6 +204,119 @@ let verify_account_handler token request =
                 (Printf.sprintf {|{ "error": "Failed to verify email: %s" }|} (Caqti_error.show e))
         )
   )
+
+let forgot_password_handler forgot_password_data request =
+  match Yojson.Safe.from_string forgot_password_data with
+  | exception _ ->
+    Dream.json ~status:`Bad_Request {|{ "error": "Invalid JSON" }|}
+  | json -> (
+    match forgot_password_request_of_yojson json with
+    | Error e ->
+      Dream.json ~status:`Bad_Request
+        (Printf.sprintf {|{ "error": "Invalid input: %s" }|} e)
+    | Ok { email } -> 
+      let open Lwt.Syntax in
+      Dream.sql request (fun db ->
+        let* result = Utils.get_user db email in
+        match result with
+        | Error e ->
+          Dream.json ~status:`Internal_Server_Error
+            (Printf.sprintf {|{ "error": "DB error: %s" }|} (Caqti_error.show e))
+        | Ok None ->
+          Dream.json ~status:`Unauthorized {|{ "error": "Reset password details has been sent" }|}
+        | Ok (Some (id, email, _hashed_password, is_verified)) ->
+            if not is_verified then
+              Dream.json ~status:`Unauthorized
+                {|{ "error": "Account not verified. Please check your email for verification instructions." }|}
+            else
+              (* Generate a password reset token *)
+              let raw_token = Utils.generate_token () in
+              let token_hash = Utils.hash_token raw_token in
+              let expiry = Utils.token_expiry_time () in
+              let* add_token_result = Utils.add_verification_token db id token_hash expiry "password_reset" in
+              match add_token_result with
+              | Ok () ->
+                  (* Send password reset email *)
+                  let* send_mail_result =
+                    send_password_reset_email "User" email raw_token in
+                    (match send_mail_result with
+                    | true ->
+                      Dream.json
+                        {|{ "status": "ok", "message": "Details to reset your password has been sent to your email." }|}
+                    | false ->
+                      Dream.json ~status:`Internal_Server_Error
+                        {|{ "error": "Failed to send reset password mail" }|})
+              | Error e ->
+                  Dream.json ~status:`Internal_Server_Error
+                    (Printf.sprintf {|{ "error": "Failed to generate reset token: %s" }|} (Caqti_error.show e))
+      )
+    )
+
+let reset_password_page token request =
+  let open Lwt.Syntax in
+  Dream.sql request (fun db ->
+    let token_hash = Utils.hash_token token in
+    let* reset_data = Utils.get_verification_token db token_hash in
+    match reset_data with
+    | Error e ->
+      Dream.json ~status:`Internal_Server_Error
+        (Printf.sprintf {|{ "error": "DB error: %s" }|} (Caqti_error.show e))
+    | Ok None ->
+        Dream.json ~status:`Bad_Request {|{ "error": "Invalid token." }|}
+    | Ok (Some (_user_id, _token_hash, expires_at)) ->
+        if (Utils.is_token_valid expires_at) then
+          Dream.html (Pages.reset_password_page ())
+        else (
+          Dream.json ~status:`Bad_Request {|{ "error": "Invalid token." }|}
+        )
+  )
+
+let reset_password_handler new_password_data request =
+  match Yojson.Safe.from_string new_password_data with
+  | exception _ ->
+    Dream.json ~status:`Bad_Request {|{ "error": "Invalid JSON" }|}
+  | json -> (
+    match reset_password_request_of_yojson json with
+    | Error e ->
+      Dream.json ~status:`Bad_Request
+        (Printf.sprintf {|{ "error": "Invalid input: %s" }|} e)
+    | Ok { token; password; confirm_password } -> 
+      let open Lwt.Syntax in
+      Dream.sql request (fun db ->
+        let token_hash = Utils.hash_token token in
+        let* result = Utils.get_verification_token db token_hash in
+        match result with
+        | Error e ->
+          Dream.json ~status:`Internal_Server_Error
+            (Printf.sprintf {|{ "error": "DB error: %s" }|} (Caqti_error.show e))
+        | Ok None ->
+          Dream.json ~status:`Unauthorized {|{ "error": "User not found" }|}
+        | Ok (Some (user_id, token_hash, expires_at)) ->
+          if not (Utils.is_token_valid expires_at) then
+            Dream.json ~status:`Bad_Request {|{ "error": "Link has expired. Please request a new password reset." }|}
+          else if confirm_password = "" || password = "" then
+            Dream.json ~status:`Bad_Request {|{ "error": "Please fill all fields" }|}
+          else if confirm_password = password then
+            let hashed_password =
+              match Utils.hash_password password with
+              | Error err ->
+                failwith ("Hashing failed: " ^ Argon2.ErrorCodes.message err)
+              | Ok (_hash, encoded) -> encoded
+              in
+              let* update_password = Utils.update_user_password db user_id hashed_password in
+                match update_password  with
+                | Ok () ->  
+                  (* Delete the used token *)
+                  let* _ = Utils.delete_verification_token db token_hash in
+                    Dream.json
+                      (Printf.sprintf {|{ "status": "ok", "message": "Password updated successfully. You can now login with your new password." }|})
+                | Error _ -> Dream.json ~status:`Unauthorized
+                {|{ "error": "Invalid request" }|}
+          else 
+            Dream.json ~status:`Bad_Request
+              {|{ "error": "Password and confirm password do not match" }|}
+      )
+    )
 
 let check_db_connection () =
   let open Lwt.Syntax in
@@ -229,6 +367,23 @@ let start_server () =
       | None ->
           Dream.html "Invalid verification link"
     );
+    Dream.get "/forgot-password" (fun _ -> Dream.html (Pages.forgot_password_page ()));
+    Dream.post "/forgot-password" (fun request -> 
+      let* body = Dream.body request in
+      forgot_password_handler body request
+    );
+    Dream.get "/reset-password" (fun request ->
+      match Dream.query request "token" with
+      | Some token ->
+          reset_password_page token request
+      | None ->
+          Dream.html "Invalid link"
+    );
+    Dream.post "/reset-password" (fun request -> 
+      let* body = Dream.body request in
+      reset_password_handler body request
+    );
+   
     Dream.get "/static/**" (Dream.static "client")
   ]
 

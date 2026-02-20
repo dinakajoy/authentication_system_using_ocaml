@@ -39,13 +39,13 @@ let add_user (module Db : DB) name email password =
 
 let get_user (module Db : DB) email =
   let open Caqti_request.Infix in
-  let query = (T.string ->? T.(t3 T.string T.string T.bool))
-    "SELECT email, password, is_verified FROM users WHERE email = ?" in
+  let query = (T.string ->? T.(t4 int string string bool))
+    "SELECT id, email, password, is_verified FROM users WHERE email = ?" in
   Db.find_opt query email
 
 let get_user_by_id (module Db : DB) user_id =
   let open Caqti_request.Infix in
-  let query = (T.int ->? T.(t2 T.string T.string))
+  let query = (T.int ->? T.(t2 string string))
     "SELECT name, email FROM users WHERE id = ?" in
   Db.find_opt query user_id
 
@@ -57,13 +57,21 @@ let update_user_as_verified (module Db : DB) user_id =
   in
   Db.exec query user_id
 
-let add_verification_token (module Db : DB) user_id token_hash expiry =
+let update_user_password (module Db : DB) user_id password =
   let query =
     let open Caqti_request.Infix in
-    (T.(t3 int string ptime) ->. T.unit)
-      "INSERT INTO email_verification_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)"
+    (T.(t2 string int) ->. T.unit)
+      "UPDATE users SET password = ? WHERE id = ?"
   in
-  Db.exec query (user_id, token_hash, expiry)
+  Db.exec query (password, user_id)
+
+let add_verification_token (module Db : DB) user_id token_hash expiry reason =
+  let query =
+    let open Caqti_request.Infix in
+    (T.(t4 int string ptime string) ->. T.unit)
+      "INSERT INTO email_verification_tokens (user_id, token_hash, expires_at, reason) VALUES (?, ?, ?, ?)"
+  in
+  Db.exec query (user_id, token_hash, expiry, reason)
 
 let get_verification_token (module Db : DB) token_hash =
   let open Caqti_request.Infix in
@@ -91,7 +99,7 @@ let add_user_and_verification_token (module Db : DB) name email hashed_password 
     let expiry = token_expiry_time () in
 
     let* () =
-      add_verification_token (module Db : DB) user_id token_hash expiry
+      add_verification_token (module Db : DB) user_id token_hash expiry "verification"
     in
 
     Lwt_result.return raw_token

@@ -79,16 +79,6 @@ let registration_page () =
               ]
               [ txt "Login here" ]
             ];
-
-          div ~a:[ a_class [ "my-2"; "flex"; "flex-end"; "justify-end" ] ] [
-              a ~a:[
-                a_class [
-                  "text-blue-500"; "hover:text-blue-600"; "font-semibold"
-                ];
-                a_href "/login";
-              ]
-              [ txt "Forgot Password" ]
-            ]
         ]
       ]
     )

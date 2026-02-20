@@ -143,9 +143,54 @@ let on_login_handler () =
     let data_as_json = Yojson.Basic.to_string json in
     make_request ("http://localhost:8080/login" |> Jstr.of_string) (data_as_json |> Jstr.of_string) "login-button"
 
+let on_forgot_password_handler () =
+  let () = is_loading "forgot-password-button" true in
+  let email = get_input_value_by_id "email" |> Jstr.to_string in
+  if email = ""
+    then display_error true "Please enter your email"
+  else 
+    display_error false "";
+    let json =
+      `Assoc [
+        "email", `String email;
+      ]
+    in
+    let data_as_json = Yojson.Basic.to_string json in
+    make_request ("http://localhost:8080/forgot-password" |> Jstr.of_string) (data_as_json |> Jstr.of_string) "forgot-password-button"
+
+open Brr
+
+let get_url_param name =
+  let uri = Window.location G.window in
+  let params = Uri.query_params uri in
+  let url_param = Uri.Params.find (Jstr.v name) params in
+  match url_param with
+  | Some token -> Jstr.to_string token
+  | None -> Jstr.to_string (Jstr.v "")
+
+let on_reset_password_handler () = 
+  let () = is_loading "reset-password-button" true in
+  let password = get_input_value_by_id "password" |> Jstr.to_string in
+  let confirm_password = get_input_value_by_id "confirm_password" |> Jstr.to_string in
+  if password = "" || confirm_password = ""
+    then display_error true "Please fill all fields"
+  else if password <> confirm_password then
+    display_error true "Passwords do not match"
+  else 
+    display_error false "";
+    let json =
+      `Assoc [
+        "token", `String (get_url_param "token");
+        "password", `String password;
+        "confirm_password", `String confirm_password;
+      ]
+    in
+    let data_as_json = Yojson.Basic.to_string json in
+    make_request ("http://localhost:8080/reset-password" |> Jstr.of_string) (data_as_json |> Jstr.of_string) "reset-password-button"
+
 let start =
   let login_form = get_element_by_id "login-form" in
-    match login_form with
+    match login_form with 
     | Some el -> 
       ignore(Ev.listen Brr_io.Form.Ev.submit (fun ev -> 
         Ev.prevent_default ev;
@@ -161,6 +206,24 @@ let start =
         Console.log [Jstr.v "Registration form submitted"];
         ignore (on_register_handler ())
       ) (El.as_target el))
-    | None -> Console.log [Jstr.v "Registration form not found"]
+    | None -> Console.log [Jstr.v "Registration form not found"];
+  let forgot_password_form = get_element_by_id "forgot-password-form" in
+    match forgot_password_form with
+    | Some el -> 
+      ignore(Ev.listen Brr_io.Form.Ev.submit (fun ev -> 
+        Ev.prevent_default ev;
+        Console.log [Jstr.v "Forgot password form submitted"];
+        ignore (on_forgot_password_handler ())
+      ) (El.as_target el))
+    | None -> Console.log [Jstr.v "Forgot password form not found"];
+  let reset_password_form = get_element_by_id "reset-password-form" in
+    match reset_password_form with
+    | Some el -> 
+      ignore(Ev.listen Brr_io.Form.Ev.submit (fun ev -> 
+        Ev.prevent_default ev;
+        Console.log [Jstr.v "Reset password form submitted"];
+        ignore (on_reset_password_handler ())
+      ) (El.as_target el))
+    | None -> Console.log [Jstr.v "Reset password form not found"]
 
 let () = Html.window##.onload := Html.handler (fun _ -> start; Js._true)

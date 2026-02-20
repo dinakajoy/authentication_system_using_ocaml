@@ -4,5 +4,7 @@
   pages
   login_page
   register_page
+  forgot_password_page
+  reset_password_page
   not_found_page)
  (libraries tyxml snippets))

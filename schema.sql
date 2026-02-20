@@ -9,6 +9,7 @@ CREATE TABLE users (
 CREATE TABLE email_verification_tokens (
   id SERIAL PRIMARY KEY,
   user_id INT NOT NULL REFERENCES users(id),
+  reason TEXT NOT NULL, -- 'verification' or 'password_reset'
   token_hash TEXT NOT NULL,
   expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now()

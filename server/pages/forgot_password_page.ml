@@ -1,9 +1,9 @@
 open Tyxml.Html
 
-let login_page () =
+let forgot_password_page () =
   html
     (head 
-      (title (txt "Login Page"))
+      (title (txt "Forgot Password Page"))
       [
         meta ~a:[a_charset "UTF-8"] ();
         meta ~a:[ a_name "viewport"; a_content "width=device-width, initial-scale=1.0" ] ();
@@ -23,17 +23,14 @@ let login_page () =
       [
         form
           ~a:[
-            a_id "login-form";
+            a_id "forgot-password-form";
             a_class ["bg-white"; "p-12"; "rounded-md"; "shadow-md"; "w-full"; "max-w-md"]
           ]
           [
-            h2 ~a:[a_class ["text-2xl"; "font-bold"; "mb-6"; "text-center"; "underline"]] [ txt "Login" ];
+            h2 ~a:[a_class ["text-2xl"; "font-bold"; "mb-6"; "text-center"; "underline"]] [ txt "Forgot Password" ];
  
             (* Email Field *)
             Snippets.email_input;
- 
-            (* Password Field *)
-            Snippets.password_input;
 
             (* Error Field *)
             Snippets.error_div;
@@ -47,7 +44,7 @@ let login_page () =
                 button
                   ~a:[
                     a_button_type `Submit;
-                    a_id "login-button";
+                    a_id "forgot-password-button";
                     a_class [
                       "bg-blue-500";
                       "hover:bg-blue-600";
@@ -59,7 +56,7 @@ let login_page () =
                       "disabled:opacity-50"; "disabled:cursor-not-allowed"
                     ]
                   ]
-                  [ txt "Login" ]
+                  [ txt "Forgot Password" ]
               ];
 
             div ~a:[ a_class [ "my-2"; "flex"; "gap-2"; "justify-end" ] ] [
@@ -77,14 +74,15 @@ let login_page () =
               ]
               [ txt "Register here" ]
             ];
+
             div ~a:[ a_class [ "my-2"; "flex"; "flex-end"; "justify-end" ] ] [
               a ~a:[
                 a_class [
                   "text-blue-500"; "hover:text-blue-600"; "font-semibold"
                 ];
-                a_href "/forgot-password";
+                a_href "/login";
               ]
-              [ txt "Forgot Password" ]
+              [ txt "Back to Login" ]
             ]
           ];
       ]

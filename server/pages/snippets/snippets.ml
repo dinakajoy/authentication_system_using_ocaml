@@ -39,6 +39,19 @@ let password_input =
     ] ();
   ]
 
+let confirm_password_input = 
+  div ~a:[a_class ["mb-6"]] [
+    label ~a:[ a_label_for "confirm_password"; a_class ["block"; "font-medium"; "mb-1"] ] [ txt "Confirm Password" ];
+    input ~a:[
+      a_input_type `Password;
+      a_name "confirm_password";
+      a_id "confirm_password";
+      a_placeholder "••••••••";
+      a_required ();
+      a_class ["w-full"; "border"; "border-gray-300"; "p-2"; "rounded"]
+    ] ();
+  ]
+
 let error_div =
   div
     ~a:[
