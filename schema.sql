@@ -14,3 +14,10 @@ CREATE TABLE email_verification_tokens (
   expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+CREATE TABLE dream_session (
+  id TEXT PRIMARY KEY,
+  label TEXT NOT NULL,
+  expires_at REAL NOT NULL,
+  payload TEXT NOT NULL
+)

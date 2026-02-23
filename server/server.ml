@@ -87,14 +87,16 @@ let login_handler login_data request =
             (Printf.sprintf {|{ "error": "DB error: %s" }|} (Caqti_error.show e))
         | Ok None ->
           Dream.json ~status:`Unauthorized {|{ "error": "User not found" }|}
-        | Ok (Some (_id, _email, hashed_password, is_verified)) ->
+        | Ok (Some (user_id, _email, hashed_password, is_verified)) ->
             if not is_verified then
               Dream.json ~status:`Unauthorized
                 {|{ "error": "Account not verified. Please check your email for verification instructions." }|}
             else
               match Utils.verify_password hashed_password password with
-              | Ok _ ->  Dream.json
-                (Printf.sprintf {|{ "status": "ok", "message": "Welcome %s" }|} email)
+              | Ok _ ->
+                let* () = Dream.invalidate_session request in
+                let* () = Dream.set_session_field request "user_id" (string_of_int user_id) in
+                  Dream.redirect request "/dashboard"
               | Error _ -> Dream.json ~status:`Unauthorized
                 {|{ "error": "Invalid email or password" }|} 
       )
@@ -318,6 +320,27 @@ let reset_password_handler new_password_data request =
       )
     )
 
+let dashboard_handler request =
+  match Dream.session_field request "user_id" with
+  | None -> Dream.redirect request "/login"
+  | Some user_id ->
+    Dream.sql request (fun db ->
+      let user_id = int_of_string user_id in
+      let* user = Utils.get_user_by_id db user_id in
+      match user with
+      | Error e ->
+          Dream.json ~status:`Internal_Server_Error
+            (Printf.sprintf {|{ "error": "DB error: %s" }|} (Caqti_error.show e))
+      | Ok None -> Dream.redirect request "/login"
+      | Ok (Some _) -> Dream.html (Pages.dashboard_page ()))
+
+let require_auth handler request =
+  match Dream.session_field request "user_id" with
+  | None ->
+      Dream.redirect request "/login"
+  | Some _ ->
+      handler request
+
 let check_db_connection () =
   let open Lwt.Syntax in
   let db_uri = Uri.of_string (Utils.get_env "DATABASE_URL") in
@@ -348,8 +371,10 @@ let start_server () =
   Dream.serve 
   @@ Dream.logger
   @@ Dream.sql_pool db_url
+  @@ Dream.sql_sessions
   @@ Dream.router [
-    Dream.get "/" (fun _ -> Dream.html (Pages.login_page ()));
+    Dream.get "/" (require_auth dashboard_handler);
+    Dream.get "/dashboard" (require_auth dashboard_handler);
     Dream.get "/login" (fun _ -> Dream.html (Pages.login_page ()));
     Dream.post "/login" (fun request -> 
       let* body = Dream.body request in
@@ -383,7 +408,10 @@ let start_server () =
       let* body = Dream.body request in
       reset_password_handler body request
     );
-   
+    Dream.get "/logout" (fun request -> 
+      let* () = Dream.invalidate_session request in
+      Dream.redirect request "/login"
+    ); 
     Dream.get "/static/**" (Dream.static "client")
   ]
 
