@@ -46,10 +46,13 @@ let extract_message json_str el =
     match json with
     | `Assoc fields -> (
         match List.assoc_opt "message" fields with
-        | Some (`String msg) -> 
+        | Some (`String msg) -> (
+          let loc = Window.location G.window in
+          if Uri.path loc = (Jstr.of_string "/login") then
+            Window.set_location G.window (Uri.v (Jstr.v "http://localhost:8080/"));
           Console.log [ Jstr.v "Success!", msg ];
           display_status true msg;
-          is_loading el false
+          is_loading el false)
         | _ -> (
             match List.assoc_opt "error" fields with
             | Some (`String err) -> 
@@ -157,8 +160,6 @@ let on_forgot_password_handler () =
     in
     let data_as_json = Yojson.Basic.to_string json in
     make_request ("http://localhost:8080/forgot-password" |> Jstr.of_string) (data_as_json |> Jstr.of_string) "forgot-password-button"
-
-open Brr
 
 let get_url_param name =
   let uri = Window.location G.window in

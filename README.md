@@ -27,7 +27,7 @@ You can either:
 docker-compose up -d
 ```
 
-This will start a PostgreSQL container using the configuration in docker-compose.yml.
+This will start a PostgreSQL container using the configuration in `docker-compose.yml` file.
 
 ### 2. Configure environment variables
 
@@ -59,7 +59,7 @@ This will build both the server and client assets.
 make serve
 ```
 
-The server should start, and the application will be available at `http://localhost:8080`.
+The server should start, and the application will be available at `http://localhost:8080`
 
 ### Stopping PostgreSQL
 
@@ -71,5 +71,6 @@ docker-compose down -v
 This will stop the database and remove all data volumes created by Docker Compose.
 
 Notes:
-- Ensure the client/main.js file exists in the client/ folder before starting the server to serve static assets correctly.
+
+- Ensure the `client/main.js` file exists in the `client/` folder before starting the server to serve static assets correctly.
 - For development, the Makefile commands handle building and running the project efficiently.

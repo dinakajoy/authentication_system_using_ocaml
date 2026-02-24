@@ -45,8 +45,8 @@ let get_user (module Db : DB) email =
 
 let get_user_by_id (module Db : DB) user_id =
   let open Caqti_request.Infix in
-  let query = (T.int ->? T.(t2 string string))
-    "SELECT name, email FROM users WHERE id = ?" in
+  let query = (T.int ->? T.(t4 string string bool string))
+    "SELECT name, email, is_verified, created_at FROM users WHERE id = ?" in
   Db.find_opt query user_id
 
 let update_user_as_verified (module Db : DB) user_id =
@@ -75,8 +75,8 @@ let add_verification_token (module Db : DB) user_id token_hash expiry reason =
 
 let get_verification_token (module Db : DB) token_hash =
   let open Caqti_request.Infix in
-  let query = (T.string ->? T.(t3 int string ptime))
-    "SELECT user_id, token_hash, expires_at FROM email_verification_tokens WHERE token_hash = ?" in
+  let query = (T.string ->? T.(t4 int string ptime string))
+    "SELECT user_id, token_hash, expires_at, reason FROM email_verification_tokens WHERE token_hash = ?" in
   Db.find_opt query token_hash
 
 let delete_verification_token (module Db : DB) token_hash =
@@ -153,3 +153,38 @@ let send_email ~to_email ~to_name ~subject ~html_content =
     Lwt.return_ok ()
   else
     Lwt.return_error (status, response_body)
+
+let record_login_attempt (module Db : DB) email ip success = 
+  let query =
+    let open Caqti_request.Infix in
+    (T.(t3 string string bool) ->. T.unit)
+      "INSERT INTO login_attempts (email, ip_address, success) VALUES (?, ?, ?)"
+  in
+  Db.exec query (email, ip, success)
+
+let count_recent_failures (module Db : DB) email ip =
+  let open Caqti_request.Infix in
+  let query = (T.(t2 string string) ->? T.int)
+    "SELECT COUNT(*) FROM login_attempts WHERE email = ? AND ip_address = ? AND success = false AND attempted_at > NOW() - INTERVAL '10 minutes'" in
+  Db.find_opt query (email, ip)
+
+let is_rate_limited db email ip =
+  count_recent_failures db email ip >>= fun result ->
+  match result with
+  | Ok (Some count) -> Lwt.return (count >= 5)
+  | Ok None -> Lwt.return false
+  | Error _ -> Lwt.return false
+
+let lock_account (module Db : DB) email =
+  let query =
+    let open Caqti_request.Infix in
+    (T.string ->. T.unit)
+      "UPDATE users SET locked_until = NOW() + INTERVAL '1 hour' WHERE email = ?"
+  in
+  Db.exec query email
+
+let is_account_locked (module Db : DB) email =
+  let open Caqti_request.Infix in
+  let query = (T.string ->? T.bool)
+    "SELECT locked_until > NOW() FROM users WHERE email = ?" in
+  Db.find_opt query email

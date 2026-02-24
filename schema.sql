@@ -3,7 +3,8 @@ CREATE TABLE users (
   name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
   is_verified BOOLEAN DEFAULT FALSE,
-  password TEXT NOT NULL
+  password TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE email_verification_tokens (
@@ -21,3 +22,15 @@ CREATE TABLE dream_session (
   expires_at REAL NOT NULL,
   payload TEXT NOT NULL
 )
+
+CREATE TABLE login_attempts (
+  id SERIAL PRIMARY KEY,
+  email TEXT NOT NULL,
+  ip_address TEXT NOT NULL,
+  attempted_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  success BOOLEAN NOT NULL
+);
+
+ALTER TABLE users
+ADD COLUMN failed_attempts INTEGER DEFAULT 0,
+ADD COLUMN locked_until TIMESTAMP;
