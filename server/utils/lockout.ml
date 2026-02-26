@@ -6,7 +6,15 @@ let lock_account (module Db : DB) email =
   let query =
     let open Caqti_request.Infix in
     (T.string ->. T.unit)
-      "UPDATE users SET locked_until = NOW() + INTERVAL '1 hour' WHERE email = ?"
+      "UPDATE users SET locked_until = NOW() + INTERVAL '1 hour' WHERE email = ? AND (locked_until IS NULL OR locked_until <= NOW())"
+  in
+  Db.exec query email
+
+let clear_lockout (module Db : DB) email =
+  let open Caqti_request.Infix in
+  let query =
+    (T.string ->. T.unit)
+     "UPDATE users SET locked_until = NULL, failed_attempts = 0 WHERE email = ? AND locked_until IS NOT NULL AND locked_until <= NOW()"
   in
   Db.exec query email
 

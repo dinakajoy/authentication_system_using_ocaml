@@ -81,6 +81,7 @@ let login_handler login_data request =
       let open Lwt.Syntax in
       Dream.sql request (fun db ->
         let ip = Dream.client request in
+        let* _ = Utils.Lockout.clear_lockout db email in
         let* limited = Utils.Rate_limiter.is_rate_limited db email ip in
         if limited then
           Dream.json ~status:`Too_Many_Requests
@@ -112,6 +113,7 @@ let login_handler login_data request =
                     let* () = Dream.set_session_field request "user_id" (string_of_int user_id) in
                       (* Record successful login *)
                       let* _ = Utils.Rate_limiter.record_login_attempt db email ip true in
+                      let* _ = Utils.Lockout.reset_failed_attempts db email in
                       Dream.json ~status:`OK
                         {|{ "status": "ok", "message": "Login was successful" }|}
                   | Error _ -> 
